@@ -6,7 +6,7 @@ var watcher = eye()
 var watchdir = '../brikabrak'
 
 watcher.watch(watchdir, {
-  'branches' : ['master']
+  'branches' : ['master', 'publish']
 })
 
 

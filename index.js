@@ -7,6 +7,7 @@
  */
 var path = require('path')
   , fs = require('fs')
+  , tiny = require('../tiny-watcher/.')
   , EventEmitter = require('events').EventEmitter
 
 module.exports = function() {
@@ -14,7 +15,8 @@ module.exports = function() {
 
   var self = new EventEmitter
   self.previousCommits = {}
-
+  self.branches = []
+  self.monitors = {}
 
   function watch(repoPath, options) {
 
@@ -26,35 +28,53 @@ module.exports = function() {
     var branches = options.branches || ['master']
     if (!Array.isArray(branches))
       branches = Array(branches)
+    self.branches = branches
 
     var repo = path.basename(repoPath)
+    var headPath = path.resolve(repoPath, '.git', 'refs', 'heads')
 
     /*
-     * Set watcher for each branch head
+     * Set a watcher on head directory for specified branch creation
      */
-    branches.forEach( function (branch) {
-      var repoHead = path.resolve(repoPath, '.git', 'refs', 'heads', branch)
-      monitor(repo, branch, repoHead)
+    var watcher = tiny(headPath, branches)
+
+    watcher.on('added', function(branch) {
+      console.log("APP added", branch)
+
+      var branchPath = path.join(headPath, branch)
+
+      if (!self.previousCommits[branchPath]) {
+        self.previousCommits[branchPath] = ''
+
+        console.log("dwatcher about to set monitor on", branchPath)
+        watcher.emit("changed", branch)
+      }
     })
-  }
 
 
-  function monitor(repo, branch, repoHead) {
+    watcher.on('removed', function (branch) {
+      console.log("APP removed", branch)
+      var branchPath = path.join(headPath, branch)
 
-    console.log('about to monitor', repoHead)
-    var monitor = fs.watch(repoHead)
+      console.log("dwatcher about to unmonitor on", branchPath)
 
-    monitor.on("change", function (event, f) {
+      delete self.previousCommits[branchPath]
+
+    })
+
+
+    watcher.on("changed", function (branch) {
+      console.log("APP changed", branch)
+      var branchPath = path.join(headPath, branch)
       /*
        * Get the commit from the changed head
        */
-      getCommit(repoHead, function (commit) {
+      getCommit(branchPath, function (commit) {
 
         /*
          * Check if it's different than the previous commit
          */
-        if (!self.previousCommits[repoHead] ||
-            self.previousCommits[repoHead] !== commit) {
+        if (self.previousCommits[branchPath] !== commit) {
 
           self.emit("change", {
             repo: repo
@@ -62,11 +82,14 @@ module.exports = function() {
           , commit: commit
           })
 
-          self.previousCommits[repoHead] = commit
+          self.previousCommits[branchPath] = commit
 
         }
       })
     })
+
+
+
   }
 
 
@@ -77,15 +100,21 @@ module.exports = function() {
       if (err) throw err
 
       /*
-       * Might want to strip off possible whitespace here
+       * Might want to strip off whitespace off commit text to be sure
+       * of a match
        */
       cb(data)
     })
   }
-
 
   self.watch = watch
 
 
   return self
 }
+
+
+// { domain: null,
+//   _events: { change: [Function] },
+//   _maxListeners: 10,
+//   _handle: { owner: [Circular], onchange: [Function] } }

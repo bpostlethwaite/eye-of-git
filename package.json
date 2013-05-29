@@ -1,0 +1,27 @@
+{
+  "name": "eye-of-git",
+  "version": "0.0.1",
+  "description": "watch-events for changes to head in specified git branches",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bpostlethwaite/eye-of-git.git"
+  },
+  "keywords": [
+    "git",
+    "watch",
+    "branch",
+    "head",
+    "file-watcher",
+    "eye-of-git"
+  ],
+  "author": "bpostlethwaite",
+  "license": "MIT",
+  "gitHead": "4643a318ddcd3656cc592ea17bfa2831a0629d79",
+  "dependencies": {
+    "directory-watcher": "~1.0.1"
+  }
+}
