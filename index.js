@@ -7,90 +7,89 @@
  */
 var path = require('path')
   , fs = require('fs')
-  , tiny = require('../tiny-watcher/.')
+  , tiny = require('tiny-watcher')
   , EventEmitter = require('events').EventEmitter
 
-module.exports = function() {
+module.exports = function(repoPath, branches) {
 
 
   var self = new EventEmitter
-  self.previousCommits = {}
-  self.branches = []
-  self.monitors = {}
+  self.branchHead = {}
 
-  function watch(repoPath, options) {
 
-    /*
-     * Parse option object
-     */
-    options = options || {}
+  var repo = path.basename(repoPath)
+  var headPath = path.resolve(repoPath, '.git', 'refs', 'heads')
 
-    var branches = options.branches || ['master']
-    if (!Array.isArray(branches))
-      branches = Array(branches)
-    self.branches = branches
 
-    var repo = path.basename(repoPath)
-    var headPath = path.resolve(repoPath, '.git', 'refs', 'heads')
+  /*
+   * Route branches argument
+   * directly to tiny-watcher.
+   */
+  var watcher = tiny(headPath, branches)
+
+
+  watcher.on('added', function(branch) {
 
     /*
-     * Set a watcher on head directory for specified branch creation
+     * Git produces these .lock files
+     * that we want to ignore
      */
-    var watcher = tiny(headPath, branches)
+    if ( gitlock(branch) ) return
 
-    watcher.on('added', function(branch) {
-      console.log("APP added", branch)
+    var branchPath = path.join(headPath, branch)
 
-      var branchPath = path.join(headPath, branch)
+    getCommit(branchPath, function (commit) {
 
-      if (!self.previousCommits[branchPath]) {
-        self.previousCommits[branchPath] = ''
+      self.branchHead[branchPath] = commit
 
-        console.log("dwatcher about to set monitor on", branchPath)
-        watcher.emit("changed", branch)
-      }
-    })
-
-
-    watcher.on('removed', function (branch) {
-      console.log("APP removed", branch)
-      var branchPath = path.join(headPath, branch)
-
-      console.log("dwatcher about to unmonitor on", branchPath)
-
-      delete self.previousCommits[branchPath]
-
-    })
-
-
-    watcher.on("changed", function (branch) {
-      console.log("APP changed", branch)
-      var branchPath = path.join(headPath, branch)
-      /*
-       * Get the commit from the changed head
-       */
-      getCommit(branchPath, function (commit) {
-
-        /*
-         * Check if it's different than the previous commit
-         */
-        if (self.previousCommits[branchPath] !== commit) {
-
-          self.emit("change", {
-            repo: repo
-          , branch: branch
-          , commit: commit
-          })
-
-          self.previousCommits[branchPath] = commit
-
-        }
+      self.emit("commit", {
+        repo: repo
+      , branch: branch
+      , commit: commit
       })
+
     })
+  })
 
 
+  watcher.on('removed', function (branch) {
 
-  }
+    var branchPath = path.join(headPath, branch)
+
+    delete self.branchHead[branchPath]
+
+  })
+
+
+  watcher.on("changed", function (branch) {
+
+    if ( gitlock(branch) ) return
+
+    var branchPath = path.join(headPath, branch)
+
+    /*
+     * Get the commit from the changed head
+     */
+    getCommit(branchPath, function (commit) {
+
+      /*
+       * Check if it's different than the previous commit
+       */
+      if (self.branchHead[branchPath] !== commit) {
+
+        self.branchHead[branchPath] = commit
+
+        self.emit("commit", {
+          repo: repo
+        , branch: branch
+        , commit: commit
+        })
+      }
+
+    })
+  })
+
+
 
 
   function getCommit (file, cb) {
@@ -107,14 +106,24 @@ module.exports = function() {
     })
   }
 
-  self.watch = watch
 
+  function gitlock (file) {
+    return (file.indexOf(".lock") > -1 )
+  }
+
+
+  function emitHeads () {
+    /*
+     * Asks tiny-watcher emitWatched function
+     * to emit a added events for each file
+     * tiny-watcher is monitoring.
+     * These will be caught by eye-of-git
+     */
+    watcher.emitWatched("added")
+  }
+
+
+  self.emitHeads = emitHeads
 
   return self
 }
-
-
-// { domain: null,
-//   _events: { change: [Function] },
-//   _maxListeners: 10,
-//   _handle: { owner: [Circular], onchange: [Function] } }

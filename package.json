@@ -1,6 +1,6 @@
 {
   "name": "eye-of-git",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "watch-events for changes to head in specified git branches",
   "main": "index.js",
   "scripts": {
@@ -22,6 +22,6 @@
   "license": "MIT",
   "gitHead": "4643a318ddcd3656cc592ea17bfa2831a0629d79",
   "dependencies": {
-    "directory-watcher": "~1.0.1"
+    "tiny-watcher": "~0.1.2"
   }
 }
